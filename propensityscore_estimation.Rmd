@@ -1,0 +1,189 @@
+---
+title: "Estimating propensity scores with logistic regression"
+output: html_document
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library("devtools")
+devtools::install_github("alanbrookhart/NAMCS")
+library(NAMCS)
+library(tableone)
+library(survey)
+library(knitr)
+library(DT)
+library(geepack)
+library(broom)
+```
+
+## Cohort: new users of Cox-2 inhibitors versus Non-selective NSAID in the National Ambulatory Medical Care Data Survey
+
+We have built a cohort from the 2005-2009 public use files from National Ambulatory Medical Care Data Survey (NAMCS).  The NAMCS survey covers over 20,000 visits per year and includes data on patient demographics, comorbidities, physician and practice characteristics, and treatment received, including medications. Currently, medications are classified using the Multum Lexicon. 
+
+From these data, we identified new users of either NSAID or Cox-2 selective non-steroidal anti-inflammatory drugs (NSAIDs). The data were augmented with a simulated peptic ulcer disease outcome. Variables were selected for this extract based on relevance to the example analyses and on availability for most or all of the 2005-2009 time range.
+
+## Viewing the data
+
+It is always important to review new data.  In the $\tt{NAMCS}$ package, the data frame is named $\tt{ns}$. To browse the data, we pipe the data frame $\tt{ns}$ into the $\tt{datatable}$ function, which creates an interactive viewer in the output.
+
+```{r}
+ns %>% datatable()
+```
+
+
+## Create a simple Table 1
+
+To understand the characteristics of each treatment group, we create a table 1 summarizing variables by treatment group.  Variables with an SMD > 0.1 are customarily considered to be out of balance.  The table suggest that the Cox-2 selective NSAID initiators are older and have a higher burden of comorbid conditions that the patients starting non-selective NSAIDs.
+
+```{r}
+factor_vars = c("year", "region", "arthritis", "asthma", "cancer", "cerebrovascular_disease", "chronic_kidney_disease", "heart_failure", "chronic_pulmonary_disease", "depression", "diabetes", "hyperlipidemia", "hypertension", "coronory_artery_disease", "osteoporosis",  "anti_hypertensive_use", "statin_use", "h2_antagonist_use", "ppi_use", "aspirin_use", "anti_coagulant_use", "corticosteroid_use", "sex", "race", "incident_pud")
+
+table1 = CreateTableOne(data = ns, vars = c("age", factor_vars), factorVars = factor_vars, 
+                        strata = "cox2_initiation", test = FALSE, smd = TRUE) 
+
+print(table1, smd = TRUE, printToggle = FALSE) %>% kable()
+```
+
+
+## Fit a propensity score model and display parameter estimates
+
+A logistic regression can be used to estimate the propensity scores using the $\tt{glm}$ function.  The parameter estimates from the fitted model are generated using the $\tt{summary}$ function.  The estimates are log odds ratios (ORs).  Exponentiating the ORs gives approximate risk ratios (because Cox-2 treatment) is rare.  We include in the PS models the variables that we know are predictors of the outcome and thus potentially true confounders.
+```{r}
+ps_model = glm(cox2_initiation ~ age + race + sex + arthritis + aspirin_use + anti_coagulant_use + corticosteroid_use + arthritis, data = ns, family = binomial)
+
+summary(ps_model)
+```
+
+
+## Add the propensity score to a new analytic data set
+
+The $\tt{predict}$ function generates predicted probabilities (the estimated PSs) from the fitted PS model.  These can be added back into the analytic file.  Here we make a new dataset that includes the original data and the estimated PSs.
+```{r}
+ns_analy = ns
+ns_analy$ps <- predict(ps_model, type = "response")
+```
+
+
+## Plot the distribution of PS, by treatment group
+
+The PS distribution can be plotted by treatment group to determine whether there is substantial non-overlap in the PS distributions, suggesting problems with positivity.  Here there do not appear to be problems.
+```{r}
+ggplot(data = ns_analy, aes(x = ps, group = cox2_initiation, fill = cox2_initiation)) +
+  geom_histogram(
+    aes(y = ..density..),
+    color = "white",
+    alpha = 0.5,
+    binwidth = 0.01,
+    position = position_dodge(width = 0.01/2)) + theme_bw() +
+  guides(colour = FALSE,
+         linetype = FALSE)
+
+```
+
+
+## Fit a logistic regression of the outcome
+
+We can fit a simple logistic model of the outcome on treatment to compute an unadjusted estimate of the effect of treatment on the outcome.  Here we see the Cox-2 use is associated with a slightly increased risk, that is indistinguishable from the null.  We know that this is biased due to confounding since we simulated the outcome.
+```{r}
+glm_unweighted = glm(incident_pud ~ cox2_initiation, data = ns_analy, family = binomial)
+summary(glm_unweighted)
+tidy(glm_unweighted)
+```
+
+
+## Compute IPTW 
+
+Now we can add to the data the inverse probability of treatment weights (IPTWs)
+```{r}
+ns_analy$iptw = I(ns[["cox2_initiation"]] == "Yes") / ns_analy$ps +
+  (I(ns[["cox2_initiation"]] == "No")) / (1 - ns_analy$ps)
+```
+
+
+## Summarize weights by treatment groups
+
+We inspect the distribution of weights within each treatment group to look for unusually small or large weights that reflect  highly influential observations which should be examined to rule out problems with data.
+```{r}
+summary(ns_analy$iptw[ns_analy$cox2_initiation == "Yes"],)
+summary(ns_analy$iptw[ns_analy$cox2_initiation == "No"],)
+```
+
+
+## Create weighted table 1
+To determine if the IPTWs have appropriately balanced covariates, we can construct a weighted Table 1.  We see that the variables included in the PS model appear to be well balanced.
+```{r}
+ns.svy = svydesign(ids = ~ 1, data = ns_analy,
+                   weights = ~ iptw)
+
+ipw_table1 = svyCreateTableOne(vars = factor_vars, factorVars = factor_vars, 
+                  strata = "cox2_initiation",
+                  data = ns.svy, test = FALSE, smd = TRUE)
+
+print(ipw_table1, smd = TRUE)
+```
+
+
+## Estimate IPTW regression of outcome on treatment
+
+We can now estimate the causal effect of treatment on the outcome risk by doing a weighted regression.
+```{r}
+glm_weighted = glm(incident_pud ~ cox2_initiation, data = ns_analy, family = binomial,
+                     weights = iptw)
+summary(glm_weighted)
+```
+
+
+## Compute SMRW
+
+We can also add to the data set a standardized mortality ratio weight, which standardizes the distribution of covariates to the treated population. In an SMRW regression, the estimates can be interpreted as the average effect of treatment among the treated (here the Cox-2 group).
+```{r}
+ns_analy$smrw= I(ns[["cox2_initiation"]] == "Yes") +
+  (1 - I(ns[["cox2_initiation"]] == "Yes")) * ns_analy$ps / (1-ns_analy$ps)
+```
+
+
+## Summarize weights by treatment groups
+
+We inspect the distribution of weights within each treatment group to look for unusually small or large weights that reflect  highly influential observations that should be examined to rule out problems with data. All weights in the Cox-2 group are 1, as required.
+```{r}
+summary(ns_analy$smrw[ns_analy$cox2_initiation == "Yes"],)
+summary(ns_analy$smrw[ns_analy$cox2_initiation == "No"],)
+```
+
+
+## Compute weighted table 1
+To determine if the SMRWs have appropriately balanced covariates, we can construct a weighted Table 1.  Here we see that the covariates in the NSAID group that were included in the PS model have a similar mean to those in the Cox-2 group.
+```{r}
+ns.svy = svydesign(ids = ~ 1, data = ns_analy,
+                   weights = ~ smrw)
+
+smrw_table1 = ipw_table1 = svyCreateTableOne(vars = factor_vars, factorVars = factor_vars, 
+                  strata = "cox2_initiation",
+                  data = ns.svy, test = FALSE, smd = TRUE)
+
+
+print(smrw_table1, smd = TRUE)
+```
+
+
+## Estimate an SMRW regression of the outcome on treatment
+
+Finally, we can perform a weighted regression of the outcome on treatment, with the SMRWs, to estimate the average effect of treatment in the treated.
+```{r}
+glm_weighted = glm(incident_pud ~ cox2_initiation, data = ns_analy, family = binomial,
+                   weights = smrw)
+summary(glm_weighted)
+```
+
+
+## Getting correct confidence intervals for IPTW / SMRW estimates
+
+To get correct confidence intervals for the PS weighted regressions, you need to use a generalized estimating equation (GEE) approach that provides a robust estimator of the standard error. To use the GEE function in the $\tt{geepack}$ library, some minor modifications to the underlying data are needed -- we need to create a subject identifier and change the outcome to a numeric variable.
+```{r}
+ns_analy$.id = seq(1, nrow(ns_analy))
+ns_analy$y = ifelse(ns$incident_pud == "Yes", 1, 0)
+gee_weighted = geeglm(y ~ cox2_initiation, data = ns_analy, weights = smrw, id=.id, family = binomial)
+summary(gee_weighted)
+```
