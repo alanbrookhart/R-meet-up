@@ -29,12 +29,13 @@ print(table1, smd = TRUE)
 
 # Fit a propensity score model and display parameter estimates
 
-ps_model = glm(cox2_initiation ~ age + race + sex + arthritis + aspirin_use + anti_coagulant_use + corticosteroid_use + arthritis, data = ns, family = binomial)
+ps_model = glm(cox2_initiation ~ age + race + sex + arthritis + aspirin_use + anti_coagulant_use +
+                 corticosteroid_use + arthritis, data = ns, family = binomial)
 summary(ps_model)
 
 # Add the propensity score to a new analytic data set
 
-ns_analy = ns
+ns_analy <- ns
 ns_analy$ps <- predict(ps_model, type = "response")
 
 
@@ -60,8 +61,8 @@ tidy(glm_unweighted)
 
 # Compute IPTW
 
-ns_analy$iptw = I(ns[["cox2_initiation"]] == "Yes") / ns_analy$ps +
-  (I(ns[["cox2_initiation"]] == "No")) / (1 - ns_analy$ps)
+ns_analy$iptw = I(ns_analy[["cox2_initiation"]] == "Yes") / ns_analy$ps +
+  (I(ns_analy[["cox2_initiation"]] == "No")) / (1 - ns_analy$ps)
 
 
 # Summarize weights by treatment groups
