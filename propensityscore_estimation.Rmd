@@ -72,7 +72,7 @@ The PS distribution can be plotted by treatment group to determine whether there
 ```{r}
 ggplot(data = ns_analy, aes(x = ps, group = cox2_initiation, fill = cox2_initiation)) +
   geom_histogram(
-    aes(y = ..density..),
+    aes(y = after_stat(density)),
     color = "white",
     alpha = 0.5,
     binwidth = 0.01,

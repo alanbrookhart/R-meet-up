@@ -42,7 +42,7 @@ ns_analy$ps <- predict(ps_model, type = "response")
 
 ggplot(data = ns_analy, aes(x = ps, group = cox2_initiation, fill = cox2_initiation)) +
   geom_histogram(
-    aes(y = ..density..),
+    aes(y = after_stat(density)),
     color = "white",
     alpha = 0.5,
     binwidth = 0.01,
