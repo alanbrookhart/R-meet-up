@@ -121,7 +121,7 @@ ipw_table1 = svyCreateTableOne(vars = factor_vars, factorVars = factor_vars,
                   strata = "cox2_initiation",
                   data = ns.svy, test = FALSE, smd = TRUE)
 
-print(ipw_table1, smd = TRUE)
+print(ipw_table1, smd = TRUE, printToggle = FALSE) %>% kable()
 ```
 
 
