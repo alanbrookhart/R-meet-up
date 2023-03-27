@@ -24,7 +24,7 @@ factor_vars = c("year", "region", "arthritis", "asthma", "cancer", "cerebrovascu
 table1 = CreateTableOne(data = ns, vars = c("age", factor_vars), factorVars = factor_vars,
                         strata = "cox2_initiation", test = FALSE, smd = TRUE)
 
-print(table1, smd = TRUE, printToggle = FALSE) %>% kable()
+print(table1, smd = TRUE)
 
 
 # Fit a propensity score model and display parameter estimates
@@ -71,7 +71,6 @@ summary(ns_analy$iptw[ns_analy$cox2_initiation == "No"],)
 
 
 # Create weighted table 1
-To determine if the IPTWs have appropriately balanced covariates, we can construct a weighted Table 1.  We see that the variables included in the PS model appear to be well balanced.
 
 ns.svy = svydesign(ids = ~ 1, data = ns_analy,
                    weights = ~ iptw)
@@ -88,7 +87,6 @@ print(ipw_table1, smd = TRUE)
 glm_weighted = glm(incident_pud ~ cox2_initiation, data = ns_analy, family = binomial,
                    weights = iptw)
 summary(glm_weighted)
-
 
 
 # Compute SMRW
