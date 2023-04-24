@@ -1,0 +1,457 @@
+---
+title: Introduction to data visualization with ggplot2
+author: "Alan Brookhart"
+date: '`r format(Sys.Date(), "%B %d, %Y")`'
+output:
+  html_document:
+    toc: yes
+    toc_depth: 2
+    toc_float: yes    
+
+---
+
+```{r setup, include=FALSE, echo=FALSE}
+
+knitr::opts_chunk$set(echo = TRUE, message = FALSE)
+library(foreign)
+library(splines)
+library(anemia)
+library(rms)
+library(RColorBrewer)
+library(tidyverse)
+```
+
+## Introduction
+
+- Know your data: data exploration is an important part of research
+- Data visualization is an excellent way to explore data
+- ggplot2 is an elegant R library that makes it easy to create compelling graphs
+- plots can be iteratively built up and easily modified
+
+
+## Visualization of hemoglobin and iron status by age, race, and sex
+
+```{r, echo=FALSE}
+
+ggplot(data = anemia, aes(x = age, y = hgb, color = sex)) +
+  geom_smooth() +
+  geom_jitter(aes(size = 1 / iron), alpha = 0.1) +
+  xlab("Age") + ylab("Hemoglobin (g/dl)") +
+  scale_size(name = "Iron Deficiency") +
+  scale_color_discrete(name = "Sex") +
+  facet_wrap( ~race) + theme_bw()
+```  
+
+## Learning objectives
+- To understand the basic language of graphics using ggplot2
+- To create basic graphs such as histograms, bar charts, scatter plots
+- To change basic options of the graph format, such as titles, legends, and color
+
+## Hemoglobin example
+
+How does hemoglbin concentration vary by age, race, sex?
+
+Example data: National Health and Nutritional Examination Survey (NHANES) data set containing data about anemia and iron status from the years on n=3,990 patients from 1999-2000. The file was created by merging demographic data with complete blood count file, and nutritional biochemistry lab file.
+
+```{r, eval = FALSE}
+library("devtools")
+devtools::install_github("alanbrookhart/anemia")
+```
+
+## ggplot architecture
+
+- __Aesthetics__: specify the variables to display
+-- what are x and y?
+-- can also link variables to color, shape, size and transparency
+- __“geoms”__:  specify type of plot
+--  do you want a scatter plot, line, bars, densities, or other type plot?
+- __Scales__: for transforming variables(e.g., log, sq. root).  
+-- also used to set legend – title, breaks, labels
+- __Facets__: creating separate panels for different factors
+- __Themes__: Adjust appearance: background, fonts, etc
+
+## Specifying the data, subsetting, and aesthetics
+
+## Summarizing one variable: histograms
+
+```{r}
+ggplot(data=anemia, aes(x=hgb)) + geom_histogram()
+```
+
+## Histograms: changing options
+
+```{r}
+ggplot(data=anemia, aes(x=hgb)) + geom_histogram(binwidth = 0.05)
+```
+
+
+## Histograms: adding a group
+
+```{r}
+ggplot(data=anemia, aes(x=hgb,fill=sex)) + 
+  geom_histogram(binwidth = 0.05)
+```
+
+
+## Density plot
+
+```{r}
+ggplot(data=anemia, aes(x=hgb)) + geom_density()
+```
+
+## Density plot: adding a group
+
+```{r}
+ggplot(data=anemia, aes(x=hgb, fill=sex)) + geom_density()
+```
+
+
+## Scatter plot of age by hemoglobin
+```{r}
+ggplot(data=anemia, aes(x=age,y=hgb)) + geom_point()
+```
+
+## Color the points by sex group
+```{r}
+ggplot(data=anemia, aes(x=age,y=hgb,color=sex)) + geom_point(alpha=0.5)
+```
+
+
+## "Jittered" scatter plot 
+```{r}
+ggplot(data=anemia, aes(x=age,y=hgb,color=sex)) + 
+  geom_jitter(alpha=0.5)
+```
+
+## Change shape for each sex group
+```{r}
+ggplot(data=anemia, aes(x=age,y=hgb,color=sex,shape=sex)) + 
+  geom_jitter(alpha=0.5)
+```
+
+## Add a smoothing spline to a plot
+```{r}
+ggplot(data=anemia, aes(x=age,y=hgb,color=sex)) + 
+  geom_jitter(alpha=0.5) +geom_smooth()
+```
+
+## Faceting a plot on 1-dimension
+```{r}
+ggplot(data=anemia, aes(x=age,y=hgb,color=sex)) + geom_jitter(alpha=0.5) +
+  geom_smooth() + facet_wrap(~race)
+```
+
+## Faceting a plot in 2-dimensions 
+```{r}
+ggplot(data=anemia, aes(x=age,y=hgb)) + 
+  geom_jitter(aes(color=sex),alpha=0.5) + 
+  geom_smooth(aes(color=sex)) + facet_grid(sex~race)
+```
+
+
+## Size points based on the inverse of total serum iron 
+```{r}
+ggplot(data=anemia, aes(x=age,y=hgb,color=sex)) + geom_smooth() +
+  geom_jitter(aes(size=1/iron), alpha=0.2) + facet_wrap(~race)+theme_bw()
+```
+
+## Changing axis labels 
+```{r}
+ggplot(data=anemia, aes(x=age,y=hgb,color=sex)) +
+  geom_smooth() +
+  geom_jitter(aes(size=1/iron), alpha=0.1) +
+  xlab("Age")+ylab("Hemoglobin (g/dl)") + facet_wrap(~race)
+```
+
+
+## Changing legend titles 
+```{r}
+ggplot(data=anemia, aes(x=age,y=hgb,color=sex)) +
+  geom_smooth() + geom_jitter(aes(size=1/iron), alpha=0.1) +
+  xlab("Age")+ylab("Hemoglobin (g/dl)") +
+  scale_size(name = "Iron Deficiency")+ scale_color_discrete(name = "Sex")+
+  facet_wrap(~race) + theme_bw()
+```
+
+
+## Hex plot
+```{r}
+ggplot(data=anemia, aes(x=age,y=hgb)) + geom_hex() 
+```
+
+
+## Box plots
+
+```{r}
+ggplot(data=anemia, aes(x=race,y=hgb)) + geom_boxplot()
+```
+
+
+## Box plots with points
+
+```{r}
+ggplot(data=anemia, aes(x=race,y=hgb,color=sex)) + geom_boxplot()+
+  geom_jitter(alpha=0.1)
+```
+
+
+## Box plots with coordinates flipped
+
+```{r}
+ggplot(data=anemia, aes(x=race,y=hgb,color=sex)) + geom_boxplot()+
+  geom_jitter(alpha=0.1) + coord_flip()
+```
+
+## Violin plots
+
+```{r}
+ggplot(data=anemia, aes(x=race,y=hgb,color=race)) + geom_violin()+
+  geom_jitter(alpha=0.1)
+```
+
+
+## Violin plots
+
+```{r}
+ggplot(data=anemia, aes(x=sex,y=hgb,color=race)) + geom_violin()
+```
+
+
+## Forest plots
+
+- First gather the data into the proper format including the following variables: 
+    - Estimate
+    - Lower CI
+    - Upper CI
+    - Grouping variable
+
+## Forest plots
+
+- For this example, we take the mean and calculate the upper and lower confidence interval for hemoglobin.
+- We will stack the row observations into one variable called "Type".
+```{r}
+anemia1 <- anemia %>% select(sex,hgb) %>% group_by(sex) %>% 
+  summarize(mean = mean(hgb),
+            n = n(), 
+            sd = sd(hgb), 
+            lower = mean - sd / sqrt(n) * 1.96,
+            upper = mean + sd / sqrt(n) * 1.96) %>%
+  rename(Type = sex)
+
+anemia2 <-  anemia %>%  select(race, hgb) %>% group_by(race) %>% 
+  summarize(mean = mean(hgb),
+            n = n(), 
+            sd = sd(hgb), 
+            lower = mean - sd / sqrt(n) * 1.96,
+            upper = mean + sd / sqrt(n) * 1.96) %>%
+   rename(Type = race)
+
+anemia3 <- rbind(anemia1, anemia2)
+```
+
+## Forest plots
+```{r}
+ggplot(data=anemia3, aes(x=Type, y=mean, ymin=lower, ymax=upper)) + 
+    geom_pointrange()
+```
+
+## Forest plots: flip the axes, add labels 
+
+```{r}
+ggplot(data=anemia3, aes(x=Type, y=mean, ymin=lower, ymax=upper)) + 
+  geom_pointrange(shape=20) +
+  coord_flip() + 
+  xlab("Demographics") + ylab("Mean Hemoglobin (95% CI)") + theme_bw()
+```
+ 
+
+## Changing themes
+
+- ggplot has preset themes that change the overall look of your graph
+- Styles for common publications such as Wall Street Journal and Economist
+- load ggthemes library
+
+```{r}
+library(ggthemes)
+```
+
+## Basic black and white theme 
+```{r{}}
+ggplot(data=anemia, aes(x=age,y=hgb,color=sex)) +
+  geom_smooth() + geom_jitter(aes(size=1/iron), alpha=0.1) +
+  xlab("Age") + ylab("Hemoglobin (g/dl)") +
+  scale_size(name = "Iron Deficiency") + scale_color_discrete(name = "Sex")+
+  facet_wrap(~race) + theme_bw()
+```
+
+## WSJ theme 
+```{r}
+ggplot(data=anemia, aes(x=age,y=hgb,color=sex)) +
+  geom_smooth() + geom_jitter(aes(size=1/iron), alpha=0.1) +
+  xlab("Age") + ylab("Hemoglobin (g/dl)") +
+  scale_size(name = "Iron Deficiency") + scale_color_discrete(name = "Sex") +
+  facet_wrap(~race) + theme_wsj()
+```
+
+## Economist theme 
+```{r}
+ggplot(data=anemia, aes(x=age,y=hgb,color=sex)) +
+  geom_smooth() + geom_jitter(aes(size=1/iron), alpha=0.1)+
+  xlab("Age") + ylab("Hemoglobin (g/dl)") +
+  scale_size(name = "Iron Deficiency") + scale_color_discrete(name = "Sex") +
+  facet_wrap(~race) + theme_economist()
+```
+
+## Solarized theme 
+```{r}
+ggplot(data=anemia, aes(x=age,y=hgb,color=sex)) +
+  geom_smooth() + geom_jitter(aes(size=1/iron), alpha=0.1) +
+  xlab("Age") + ylab("Hemoglobin (g/dl)") +
+  scale_size(name = "Iron Deficiency") + scale_color_discrete(name = "Sex")+
+  facet_wrap(~race) + theme_solarized()
+```
+
+## Tufte theme 
+```{r}
+ggplot(data=anemia, aes(x=age,y=hgb,color=sex)) +
+  geom_smooth() + geom_jitter(aes(size=1/iron), alpha=0.1) +
+  xlab("Age") + ylab("Hemoglobin (g/dl)") +
+  scale_size(name = "Iron Deficiency") + scale_color_discrete(name = "Sex")+
+  facet_wrap(~race) + theme_tufte()
+```
+
+## Specifying colors
+- Set your own color palette by using hexadecimal color code chart
+<div class="midcenter" style="margin-left:-200px; margin-top:-100px;">
+<img src="colorpalette.png"></img>
+</div>
+
+## Specifying colors
+- Use default color palettes using RColorBrewer package
+    - Use scale_color_brewer() for lines/points
+    - Use scale_fill_brewer() for bars
+- A great reference: http://www.cookbook-r.com/Graphs/Colors_(ggplot2)/
+
+## Color Brewer Palettes {#slideID}
+```{r figcol, fig.height=7.5, fig.width=6}
+display.brewer.all()
+```
+
+## Specifying colors using Color Brewer
+
+```{r}
+ggplot(data=anemia, aes(x=age,y=hgb,color=sex)) +
+  geom_smooth() + geom_jitter(aes(size=1/iron), alpha=0.1) +
+  xlab("Age") + ylab("Hemoglobin (g/dl)") +
+  scale_size(name = "Iron Deficiency") + scale_color_discrete(name = "Sex")+
+  facet_wrap(~race) + theme_bw() + scale_color_brewer(palette = "Dark2")
+```
+
+## Saving 
+
+- Assign your plot to an object
+- Use ggsave ("filename", plot = )
+- Additional options for sizing, resolution
+
+```{r}
+myplot <- ggplot(data=anemia, aes(x=age,y=hgb,color=sex)) +
+  geom_smooth() + geom_jitter(aes(size=1/iron), alpha=0.1) +
+  xlab("Age") + ylab("Hemoglobin (g/dl)") +
+  scale_size(name = "Iron Deficiency") + scale_color_discrete(name = "Sex")+
+  facet_wrap(~race) + theme_bw() + scale_color_brewer(palette = "Dark2")
+
+ggsave("hgb_age.jpeg", plot = myplot)
+```
+
+## Maps
+
+- Use an existing map package to create maps
+    - maps: world, select countries (France, Canada, New Zealand), US states, US counties
+    - mapdata: Japan, China, World rivers
+    - mapDK: Denmark
+- Use shapefile to create your own maps
+
+## Basic US Map 
+```{r}
+library(maps)
+library(mapproj)
+us.states <- map_data("state")
+ggplot(data=us.states, aes(x=long, y=lat, group=group)) + 
+    geom_polygon(fill="white", color="black")
+```
+
+## Adding color and removing legend 
+```{r}
+ggplot(data=us.states, aes(x=long, y=lat, group=group, fill=region)) + 
+  geom_polygon(color="black", size=0.2) + guides(fill=FALSE)
+```
+
+## Adding projection 
+```{r}
+ggplot(data=us.states, aes(x=long, y=lat, group=group, fill=region)) + 
+  geom_polygon(color="black", size=0.2) + 
+  coord_map("albers",  lat0 = 45.5, lat1 = 29.5) + guides(fill=FALSE)
+```
+
+
+## Adding state data on US Arrests
+- Dataset contains rates of arrests per 100,000 residents for assault, murder, and rape in the 50 US states in 1973
+```{r}
+head(USArrests)
+```
+
+## Merge state & arrest data
+```{r}
+arrests <- USArrests
+names(arrests) <- tolower(names(arrests))
+arrests$region <- tolower(rownames(USArrests))
+
+crime <- merge(us.states, arrests, sort = FALSE, by = "region")
+crime <- crime[order(crime$order), ]
+```
+
+## Map the assault rate by state 
+```{r}
+ggplot(crime, aes(long, lat)) +
+  geom_polygon(aes(group = group, fill = assault)) +
+  coord_map("albers",  lat0 = 45.5, lat1 = 29.5)
+```
+
+## Further reading
+
+- ggplot2: http://docs.ggplot2.org/current/
+- Cookbook for R: http://www.cookbook-r.com/Graphs/
+- Quick-R: http://www.statmethods.net/index.html
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+## scratch
+
+Let $S_i(t) \in \cal{S}$ be the state of individual $i$ at time $t$, where $\cal{S}$ is the set of different states.  Let $C$ be the time of censoring.
+
+Using Sankey diagrams, we are interested in depicting the proportion of the population in different states at a select number of times (via the height of vertically stacked boxes) and the proport
+
+If there were no uncensored observations, we could estimate state probabilities with simple averages.
+\[
+\hat{Pr}(S(t)=s)=\frac{1}{n}\sum \frac{I(C_i>t) I(S(t)=t)}{Pr(C_i>t|X_i)}.
+\]
+
+\[
+\hat{Pr}(S(t)=s)=\frac{1}{n}\sum \frac{I(C>t_i) I(S(t)=t)}{Pr(C>t_i|X_i)}.
+\]
+where Pr(C>t_i|X_i) can be estimated with a Cox proportional hazards regression.
+
+
+
+
